@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from agent.core import CodingAgent
-from agent.sessions import SessionManager
+from agent.sessions import SessionManager, make_title
 
 load_dotenv()
 
@@ -91,16 +91,10 @@ def chat(session_id: str, req: ChatRequest):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
-    # 首条用户消息时用其前 20 字生成标题，过长用省略号
+    # 首条用户消息时生成标题
     has_user = any(m["role"] == "user" for m in session["messages"])
     if not has_user:
-        text = req.message.strip()
-        if not text:
-            session["title"] = "新对话"
-        elif len(text) <= 20:
-            session["title"] = text
-        else:
-            session["title"] = text[:19] + "…"
+        session["title"] = make_title(req.message)
 
     def gen():
         try:

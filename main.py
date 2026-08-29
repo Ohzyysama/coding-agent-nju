@@ -1,10 +1,36 @@
 import os
+import time
+
 from dotenv import load_dotenv
-from agent.core import CodingAgent
-from agent.sessions import SessionManager
 from rich.console import Console
 
-CLI_SESSION_ID = "cli"
+from agent.core import CodingAgent
+from agent.sessions import SessionManager, make_title
+
+
+def time_ago(ts):
+    diff = time.time() - ts
+    if diff < 60:
+        return "刚刚"
+    if diff < 3600:
+        return f"{int(diff // 60)} 分钟前"
+    if diff < 86400:
+        return f"{int(diff // 3600)} 小时前"
+    return f"{int(diff // 86400)} 天前"
+
+
+HELP_TEXT = (
+    "[bold]可用命令：[/bold]\n"
+    "  /new        新建会话\n"
+    "  /sessions   列出所有会话\n"
+    "  /use <编号>  切换会话\n"
+    "  /rm <编号>   删除会话\n"
+    "  /clear      清空当前会话\n"
+    "  /history    查看当前上下文占用\n"
+    "  /help       显示本帮助\n"
+    "  exit        退出"
+)
+
 
 if __name__ == "__main__":
     load_dotenv()
@@ -17,10 +43,17 @@ if __name__ == "__main__":
     manager = SessionManager()
     console = Console()
 
-    session = manager.get_or_create(CLI_SESSION_ID)
+    # 启动：有历史会话则加载最近一个，否则新建
+    sessions = manager.list()
+    if sessions:
+        current = manager.get(sessions[0]["id"])
+        console.print(f"[dim]已加载最近会话：[/dim][cyan]{current['title']}[/cyan]")
+    else:
+        current = manager.create()
+        console.print("[dim]已新建会话，开始你的第一个任务吧。[/dim]")
 
-    console.print("\n[bold blue]=== 欢迎使用编程智能体（连续对话模式）===[/bold blue]")
-    console.print("[dim]命令: /clear 清空历史 | /history 查看上下文 | exit 退出[/dim]")
+    console.print("\n[bold blue]=== 欢迎使用编程智能体（多会话命令行）===[/bold blue]")
+    console.print("[dim]输入 /help 查看命令，直接输入编程任务即可开始。[/dim]")
 
     while True:
         try:
@@ -30,23 +63,84 @@ if __name__ == "__main__":
             if not task.strip():
                 continue
 
-            if task.strip() == '/clear':
-                session = manager.clear(CLI_SESSION_ID)
-                console.print("[bold green] 对话历史已清空，上下文已重置。[/bold green]")
+            cmd = task.strip()
+            parts = cmd.split(maxsplit=1)
+            head = parts[0].lower()
+            arg = parts[1].strip() if len(parts) > 1 else ""
+
+            # ---- 命令处理 ----
+            if head == '/new':
+                current = manager.create()
+                console.print("[bold green]已新建会话。[/bold green]")
                 continue
-            if task.strip() == '/history':
-                est = agent._estimate_tokens(session["messages"])
+
+            if head == '/sessions':
+                sessions = manager.list()
+                if not sessions:
+                    console.print("[dim]暂无历史会话。[/dim]")
+                    continue
+                for i, s in enumerate(sessions, 1):
+                    mark = "  [yellow]← 当前[/yellow]" if s["id"] == current["id"] else ""
+                    console.print(
+                        f"  [bold]{i}[/bold]. {s['title']}  "
+                        f"[dim]({time_ago(s['updated_at'])} · {s['message_count']} 条消息)[/dim]{mark}"
+                    )
+                continue
+
+            if head == '/use':
+                sessions = manager.list()
+                if not (arg.isdigit() and 1 <= int(arg) <= len(sessions)):
+                    console.print("[yellow]用法: /use <编号>，先用 /sessions 查看编号。[/yellow]")
+                    continue
+                current = manager.get(sessions[int(arg) - 1]["id"])
+                console.print(f"[bold green]已切换到会话：[/bold green][cyan]{current['title']}[/cyan]")
+                continue
+
+            if head == '/rm':
+                sessions = manager.list()
+                if not (arg.isdigit() and 1 <= int(arg) <= len(sessions)):
+                    console.print("[yellow]用法: /rm <编号>，先用 /sessions 查看编号。[/yellow]")
+                    continue
+                target = sessions[int(arg) - 1]
+                manager.delete(target["id"])
+                console.print(f"[bold red]已删除会话：[/bold red]{target['title']}")
+                if target["id"] == current["id"]:
+                    remaining = manager.list()
+                    current = manager.get(remaining[0]["id"]) if remaining else manager.create()
+                    console.print(f"[dim]已切换到：[/dim][cyan]{current['title']}[/cyan]")
+                continue
+
+            if head == '/clear':
+                current = manager.clear(current["id"])
+                console.print("[bold green]对话历史已清空，上下文已重置。[/bold green]")
+                continue
+
+            if head == '/history':
+                est = agent._estimate_tokens(current["messages"])
                 console.print(
-                    f"[cyan]当前上下文：[/cyan] {len(session['messages'])} 条消息，"
-                    f"约 {est} token（上限 {agent.max_tokens}）。"
+                    f"[cyan]当前会话：[/cyan]{current['title']} · {len(current['messages'])} 条消息，"
+                    f"约 {est} token（上限 {agent.max_tokens}）"
                 )
                 continue
 
-            agent.run(task, session["messages"])
-            manager.save(session)
+            if head == '/help':
+                console.print(HELP_TEXT)
+                continue
+
+            if head.startswith('/'):
+                console.print(f"[yellow]未知命令: {cmd}，输入 /help 查看帮助。[/yellow]")
+                continue
+
+            # ---- 正常任务 ----
+            has_user = any(m["role"] == "user" for m in current["messages"])
+            if not has_user:
+                current["title"] = make_title(cmd)
+
+            agent.run(cmd, current["messages"])
+            manager.save(current)
 
         except KeyboardInterrupt:
-            manager.save(session)
+            manager.save(current)
             print("\n检测到强制中断，历史已保存，程序退出。")
             break
         except Exception as e:

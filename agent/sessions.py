@@ -12,6 +12,16 @@ SYSTEM_PROMPT = (
 )
 
 
+def make_title(message):
+    """从首条用户消息生成会话标题，过长用省略号。"""
+    text = message.strip()
+    if not text:
+        return "新对话"
+    if len(text) <= 20:
+        return text
+    return text[:19] + "…"
+
+
 class SessionManager:
     """多会话持久化：每个会话一个 JSON 文件，存于 sessions/ 目录。"""
 
