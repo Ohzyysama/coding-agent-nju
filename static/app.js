@@ -223,6 +223,22 @@ async function sendMessage() {
   }
 }
 
+async function respondConfirm(approved, allowBtn, denyBtn, statusEl) {
+  allowBtn.disabled = true;
+  denyBtn.disabled = true;
+  statusEl.textContent = '处理中…';
+  try {
+    await api('/api/sessions/' + currentId + '/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approved })
+    });
+    statusEl.textContent = approved ? '已允许' : '已拒绝';
+  } catch (e) {
+    statusEl.textContent = '确认失败：' + e.message;
+  }
+}
+
 function renderEvent(evt, container, lastToolCard) {
   switch (evt.type) {
     case 'status': {
@@ -269,6 +285,52 @@ function renderEvent(evt, container, lastToolCard) {
       bubble.className = 'msg assistant';
       bubble.textContent = evt.content;
       container.appendChild(bubble);
+      if (evt.tokens) {
+        const stats = document.createElement('div');
+        stats.className = 'token-stats';
+        stats.textContent = '本次任务消耗 ' + evt.tokens + ' token';
+        container.appendChild(stats);
+      }
+      scrollBottom();
+      return lastToolCard;
+    }
+    case 'confirm': {
+      container.querySelectorAll('.thinking').forEach(e => e.remove());
+      const card = document.createElement('div');
+      card.className = 'confirm-card';
+
+      const text = document.createElement('div');
+      text.className = 'confirm-text';
+      text.textContent = '⚠️ Agent 请求执行危险命令：';
+
+      const code = document.createElement('code');
+      code.className = 'confirm-code';
+      code.textContent = evt.command;
+
+      const btns = document.createElement('div');
+      btns.className = 'confirm-btns';
+
+      const allowBtn = document.createElement('button');
+      allowBtn.className = 'confirm-allow';
+      allowBtn.textContent = '允许';
+
+      const denyBtn = document.createElement('button');
+      denyBtn.className = 'confirm-deny';
+      denyBtn.textContent = '拒绝';
+
+      const status = document.createElement('span');
+      status.className = 'confirm-status';
+
+      allowBtn.addEventListener('click', () => respondConfirm(true, allowBtn, denyBtn, status));
+      denyBtn.addEventListener('click', () => respondConfirm(false, allowBtn, denyBtn, status));
+
+      btns.appendChild(allowBtn);
+      btns.appendChild(denyBtn);
+      btns.appendChild(status);
+      card.appendChild(text);
+      card.appendChild(code);
+      card.appendChild(btns);
+      container.appendChild(card);
       scrollBottom();
       return lastToolCard;
     }
