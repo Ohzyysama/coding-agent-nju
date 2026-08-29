@@ -19,7 +19,7 @@ def execute_command(command):
     """执行终端命令，捕获 stderr 用于自主纠错"""
     danger_keywords = ['rm -rf', 'del', 'format']
     if any(kw in command for kw in danger_keywords):
-        user_input = input(f"\n⚠️ 警告：Agent 试图执行危险命令 `{command}`。是否允许? (y/n): ")
+        user_input = input(f"\n 警告：Agent 试图执行危险命令 `{command}`。是否允许? (y/n): ")
         if user_input.lower() != 'y':
             return "执行被用户拒绝。"
 

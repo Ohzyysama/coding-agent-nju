@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编程智能体</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>🤖 编程智能体</h1>
+        <button id="new-chat" class="new-chat-btn">＋ 新建对话</button>
+      </div>
+      <ul id="session-list" class="session-list"></ul>
+    </aside>
+    <main class="main">
+      <header class="main-header">
+        <span id="current-title">选择一个对话开始</span>
+      </header>
+      <div id="messages" class="messages"></div>
+      <div class="input-bar">
+        <textarea id="input" placeholder="输入编程任务，Enter 发送，Shift+Enter 换行" rows="1"></textarea>
+        <button id="send" class="send-btn">发送</button>
+      </div>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
