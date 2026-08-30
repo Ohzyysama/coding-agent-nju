@@ -334,6 +334,15 @@ function renderEvent(evt, container, lastToolCard) {
       scrollBottom();
       return lastToolCard;
     }
+    case 'limit': {
+      container.querySelectorAll('.thinking').forEach(e => e.remove());
+      const el = document.createElement('div');
+      el.className = 'msg error';
+      el.textContent = '⛔ ' + evt.content;
+      container.appendChild(el);
+      scrollBottom();
+      return lastToolCard;
+    }
     case 'error': {
       container.querySelectorAll('.thinking').forEach(e => e.remove());
       const err = document.createElement('div');

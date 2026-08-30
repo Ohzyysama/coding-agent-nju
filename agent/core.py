@@ -19,6 +19,7 @@ class CodingAgent:
         # 上下文预算（估算 token 数），可用环境变量 MAX_CONTEXT_TOKENS 覆盖
         self.max_tokens = int(os.getenv("MAX_CONTEXT_TOKENS", "16000"))
         self.total_tokens = 0  # 累计 Token 消耗（跨任务，用于成本统计）
+        self.max_steps = int(os.getenv("MAX_STEPS", "15"))  # 单次任务最大模型调用步数，防死循环
 
     def _estimate_tokens(self, messages):
         total = 0
@@ -63,19 +64,28 @@ class CodingAgent:
         except Exception as e:
             return f"工具执行异常: {e}"
 
-    def stream_run(self, task_prompt, messages, confirm=None):
+    def stream_run(self, task_prompt, messages, confirm=None, max_steps=None):
         """生成器：执行一轮任务，yield 过程事件；messages 原地更新，由调用方负责持久化。
 
         confirm: 可选回调 confirm(command) -> bool，用于危险命令确认。
                 未提供时危险命令一律拒绝（安全默认）。
+        max_steps: 单次任务最大模型调用步数，超过则熔断，防止死循环。
 
-        事件类型：status / tool_call / confirm / tool_result / answer / error
+        事件类型：status / tool_call / confirm / tool_result / answer / limit / error
         """
         messages.append({"role": "user", "content": task_prompt})
         self._trim_context(messages)
         task_tokens = 0
+        max_steps = max_steps or self.max_steps
+        step_count = 0
 
         while True:
+            # 熔断：防止模型陷入死循环无限消耗 Token
+            if step_count >= max_steps:
+                yield {"type": "limit", "content": f"触发熔断：任务超过最大步数（{max_steps} 步），已强制终止以防止死循环。"}
+                return
+
+            step_count += 1
             yield {"type": "status", "content": "thinking"}
             try:
                 response = self.client.chat.completions.create(
@@ -156,5 +166,7 @@ class CodingAgent:
                 console.print(event["content"])
                 if event.get("tokens"):
                     console.print(f"[dim]本次任务消耗 Token: {event['tokens']}（累计 {self.total_tokens}）[/dim]")
+            elif etype == "limit":
+                console.print(f"\n[bold red]❌ {event['content']}[/bold red]")
             elif etype == "error":
                 console.print(f"\n[red]错误：[/red] {event['content']}")

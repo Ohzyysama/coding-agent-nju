@@ -13,6 +13,7 @@
 | 🛡 危险操作确认 | `rm -rf` / `del` / `format` 等危险命令需确认后才执行（前端弹框 / 终端询问） |
 | ✂️ 长文本智能截断 | 工具输出过长时保留头尾，防止 Token 溢出崩溃 |
 | 📊 Token 成本统计 | 实时统计每轮任务消耗的 Token |
+| 🚦 熔断机制 | 限制单任务最大步数，防止模型陷入死循环无限消耗 Token |
 
 ## 🧰 技术栈
 
@@ -33,6 +34,7 @@ pip install -r requirements.txt
 OPENAI_API_KEY=你的密钥
 OPENAI_BASE_URL=https://api.deepseek.com   # 或任意兼容端点
 MAX_CONTEXT_TOKENS=16000                    # 可选，上下文预算
+MAX_STEPS=15                                 # 可选，单任务最大步数（熔断）
 ```
 
 默认模型为 `deepseek-chat`，可在 [agent/core.py](agent/core.py) 中修改。
@@ -96,7 +98,7 @@ coding-agent-nju/
 1. **ReAct 状态机**：[`stream_run`](agent/core.py) 是一个生成器，yield `status / tool_call / tool_result / answer / error / confirm` 事件，CLI 与 Web 复用同一核心，只是消费方式不同。
 2. **上下文滑动窗口**：`_trim_context` 按完整轮次裁剪最早历史，超出预算丢弃，保证 `tool_calls` 与结果不被打散，防止上下文溢出。
 3. **长文本智能截断**：`smart_truncate` 对工具输出保留头尾（报错信息通常在日志尾部），既避免 Token 溢出崩溃，又降低 API 成本。
-4. **成本意识**：实时统计每轮任务的 Token 消耗，可基于此设置熔断机制（如单任务超限强制终止）。
+4. **成本意识 + 熔断**：实时统计每轮任务的 Token 消耗；限制单任务最大模型调用步数（默认 15，可用 `MAX_STEPS` 覆盖），模型陷入死循环时强制熔断，防止无限烧钱。
 5. **人机协作确认**：危险命令通过可注入的 `confirm` 回调确认——CLI 用终端输入、Web 用前端弹框 + SSE 往返，后端不阻塞。
 
 ## ⚠️ 安全说明
