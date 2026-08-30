@@ -10,6 +10,17 @@ from .schemas import TOOLS_SCHEMA
 console = Console()
 
 
+def _format_args(args, max_len=60):
+    """格式化工具参数，超长参数截断显示，避免在终端刷屏。"""
+    parts = []
+    for key, value in args.items():
+        text = str(value)
+        if len(text) > max_len:
+            text = f"{text[:max_len]}…（共 {len(text)} 字）"
+        parts.append(f"{key}={text}")
+    return ", ".join(parts)
+
+
 class CodingAgent:
     def __init__(self):
         self.client = OpenAI(
@@ -157,7 +168,7 @@ class CodingAgent:
                 # 确认由 cli_confirm 的 input 完成，这里无需额外处理
                 continue
             elif etype == "tool_call":
-                console.print(f"[bold yellow] 调用工具：[/bold yellow] {event['name']} | 参数: {event['args']}")
+                console.print(f"[bold yellow] 调用工具：[/bold yellow] {event['name']} | 参数: {_format_args(event['args'])}")
             elif etype == "tool_result":
                 content = str(event["content"])
                 preview = content[:200] + ("..." if len(content) > 200 else "")
