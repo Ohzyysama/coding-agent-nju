@@ -1,3 +1,5 @@
+import os
+import shutil
 import subprocess
 
 DANGER_KEYWORDS = ['rm -rf', 'del', 'format']
@@ -31,9 +33,16 @@ def read_file(file_path):
 
 def write_file(file_path, content):
     try:
+        # 自动备份：覆盖前若文件已存在，先复制一份 .bak，防止模型幻觉破坏原文件
+        backup_msg = ""
+        if os.path.exists(file_path):
+            backup_path = file_path + ".bak"
+            shutil.copy2(file_path, backup_path)
+            backup_msg = f"（原文件已自动备份至 {backup_path}）"
+
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
-        return "文件写入成功。"
+        return f"文件写入成功。{backup_msg}"
     except Exception as e:
         return f"写入失败: {str(e)}"
 
@@ -54,8 +63,35 @@ def execute_command(command):
         return f"执行异常: {str(e)}"
 
 
+def list_directory(path="."):
+    """递归列出目录树（跳过隐藏目录、__pycache__、venv 等），让 Agent 了解项目结构。"""
+    try:
+        lines = []
+
+        def walk(current, depth):
+            if depth > 3:
+                lines.append("  " * depth + "...")
+                return
+            entries = sorted(os.listdir(current))
+            entries = [e for e in entries
+                       if not e.startswith('.') and '__pycache__' not in e and e not in ('venv', 'node_modules')]
+            for e in entries:
+                full = os.path.join(current, e)
+                if os.path.isdir(full):
+                    lines.append("  " * depth + e + "/")
+                    walk(full, depth + 1)
+                else:
+                    lines.append("  " * depth + e)
+
+        walk(path, 0)
+        return smart_truncate(f"目录结构（{path}）:\n" + "\n".join(lines))
+    except Exception as e:
+        return f"无法读取目录: {str(e)}"
+
+
 TOOL_MAP = {
     "read_file": read_file,
     "write_file": write_file,
-    "execute_command": execute_command
+    "execute_command": execute_command,
+    "list_directory": list_directory
 }

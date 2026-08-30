@@ -37,5 +37,17 @@ TOOLS_SCHEMA = [
                 "required": ["file_path"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_directory",
+            "description": "列出指定目录下的文件和子目录结构（递归），用于了解项目全貌",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string", "description": "要查看的目录路径，如 '.' 表示当前目录"}},
+                "required": ["path"]
+            }
+        }
     }
 ]
