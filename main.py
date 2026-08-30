@@ -1,5 +1,11 @@
 import os
+import sys
 import time
+
+# Windows 下强制 UTF-8 输出，避免 rich 渲染 Markdown 时因 GBK 编码报错
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 from dotenv import load_dotenv
 from rich.console import Console

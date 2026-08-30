@@ -3,6 +3,7 @@ import json
 from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
+from rich.markdown import Markdown
 from .tools import TOOL_MAP, is_dangerous_command
 from .schemas import TOOLS_SCHEMA
 
@@ -163,7 +164,8 @@ class CodingAgent:
                 console.print(f"[dim]↳ 执行结果: {preview}[/dim]\n")
             elif etype == "answer":
                 console.print("\n[bold magenta] 任务完成，最终回复：[/bold magenta]")
-                console.print(event["content"])
+                if event["content"]:
+                    console.print(Markdown(event["content"]))
                 if event.get("tokens"):
                     console.print(f"[dim]本次任务消耗 Token: {event['tokens']}（累计 {self.total_tokens}）[/dim]")
             elif etype == "limit":

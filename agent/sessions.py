@@ -2,14 +2,18 @@ import os
 import json
 import time
 import uuid
+import platform
 
 SESSIONS_DIR = "sessions"
 
-SYSTEM_PROMPT = (
-    "你是一个强大的编程智能体。你可以写代码并运行。"
-    "如果报错，请仔细阅读错误信息（stderr），修改代码并重新尝试，直到任务成功。"
-    "你会记住之前对话的内容，支持连续多轮协作，可基于上下文继续之前的工作。"
-)
+def make_system_prompt():
+    """生成 system prompt，附带运行平台与工作目录信息，帮助模型写出正确的命令。"""
+    return (
+        f"你是一个强大的本地编程智能体，当前运行在 {platform.system()} 系统上，"
+        f"工作目录：{os.getcwd()}。\n"
+        "你可以写代码并运行。如果报错，请仔细阅读错误信息（stderr），修改代码并重新尝试，直到任务成功。\n"
+        "你会记住之前对话的内容，支持连续多轮协作，可基于上下文继续之前的工作。"
+    )
 
 
 def make_title(message):
@@ -48,7 +52,7 @@ class SessionManager:
             "title": "新对话",
             "created_at": time.time(),
             "updated_at": time.time(),
-            "messages": [{"role": "system", "content": SYSTEM_PROMPT}],
+            "messages": [{"role": "system", "content": make_system_prompt()}],
         }
         self.save(session)
         return session
@@ -90,7 +94,7 @@ class SessionManager:
         session = self.get(session_id)
         if not session:
             return None
-        session["messages"] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        session["messages"] = [{"role": "system", "content": make_system_prompt()}]
         session["title"] = "新对话"
         self.save(session)
         return session
