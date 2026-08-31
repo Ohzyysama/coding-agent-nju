@@ -13,7 +13,6 @@ from rich.console import Console
 from agent.core import CodingAgent
 from agent.sessions import SessionManager, make_title
 
-
 def time_ago(ts):
     diff = time.time() - ts
     if diff < 60:
